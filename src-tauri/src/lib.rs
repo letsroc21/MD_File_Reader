@@ -15,6 +15,8 @@ use tauri::{
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult};
 
+mod update;
+
 const MARKDOWN_EXTS: &[&str] = &["md", "markdown", "mdown", "mkd", "txt"];
 const RECENT_LIMIT: usize = 15;
 
@@ -627,6 +629,66 @@ fn clear_recent(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn note_stem(name: &str) -> String {
+    let lower = name.to_ascii_lowercase();
+    for ext in MARKDOWN_EXTS {
+        let suffix = format!(".{ext}");
+        if lower.ends_with(&suffix) {
+            return name[..name.len() - suffix.len()].to_string();
+        }
+    }
+    name.to_string()
+}
+
+fn resolve_note_in_dir(dir: &Path, target: &str) -> Option<PathBuf> {
+    let mut names = vec![target.to_string()];
+    let lower = target.to_ascii_lowercase();
+    if !MARKDOWN_EXTS
+        .iter()
+        .any(|ext| lower.ends_with(&format!(".{ext}")))
+    {
+        names.push(format!("{target}.md"));
+        names.push(format!("{target}.markdown"));
+    }
+    for name in &names {
+        let path = dir.join(name);
+        if path.is_file() && is_supported(&path) {
+            return Some(path);
+        }
+    }
+    let wanted = note_stem(target).to_ascii_lowercase();
+    let entries = fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() || !is_supported(&path) {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
+        if note_stem(name).to_ascii_lowercase() == wanted {
+            return Some(path);
+        }
+    }
+    None
+}
+
+#[tauri::command]
+fn resolve_note(from: Option<String>, target: String) -> Option<String> {
+    let trimmed = target.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let direct = PathBuf::from(trimmed);
+    if direct.is_absolute() && direct.is_file() && is_supported(&direct) {
+        return Some(direct.to_string_lossy().to_string());
+    }
+    let from = PathBuf::from(from.as_deref()?);
+    let dir = from.parent()?;
+    resolve_note_in_dir(dir, trimmed).map(|path| path.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 fn watch_file(app: AppHandle, path: String) -> Result<(), String> {
     ensure_watcher(&app);
@@ -680,7 +742,9 @@ pub fn run() {
             list_recent,
             clear_recent,
             watch_file,
-            set_native_theme
+            resolve_note,
+            set_native_theme,
+            update::check_for_update
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
@@ -761,5 +825,20 @@ mod tests {
         super::atomic_write(&path, b"new content\n").unwrap();
         assert_eq!(fs::read_to_string(&path).unwrap(), "new content\n");
         let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn resolve_note_finds_md_in_same_folder() {
+        let dir = std::env::temp_dir().join("md-reader-wiki");
+        let _ = fs::create_dir_all(&dir);
+        let note = dir.join("Welcome.md");
+        fs::write(&note, "# hi\n").unwrap();
+        let found = super::resolve_note_in_dir(&dir, "welcome").unwrap();
+        assert!(found.is_file());
+        assert_eq!(
+            found.file_stem().unwrap().to_string_lossy().to_ascii_lowercase(),
+            "welcome"
+        );
+        let _ = fs::remove_file(&note);
     }
 }

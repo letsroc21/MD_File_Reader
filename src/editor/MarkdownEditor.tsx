@@ -5,7 +5,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, placeholder } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
-import { livePreview, livePreviewTheme } from "./livePreview";
+import { livePreview, livePreviewTheme, wikiClickHandler } from "./livePreview";
 import { markdownShortcuts } from "./shortcuts";
 
 const markdownHighlight = HighlightStyle.define([
@@ -21,14 +21,19 @@ type MarkdownEditorProps = {
   initialText: string;
   mode: "live" | "source";
   onChange: (text: string) => void;
+  onOpenNote?: (target: string) => void;
 };
 
-export default function MarkdownEditor({ initialText, mode, onChange }: MarkdownEditorProps) {
+export default function MarkdownEditor({ initialText, mode, onChange, onOpenNote }: MarkdownEditorProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const previewConf = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
+  const onOpenNoteRef = useRef(onOpenNote);
+  const modeRef = useRef(mode);
   onChangeRef.current = onChange;
+  onOpenNoteRef.current = onOpenNote;
+  modeRef.current = mode;
 
   useEffect(() => {
     if (!parentRef.current) {
@@ -45,6 +50,7 @@ export default function MarkdownEditor({ initialText, mode, onChange }: Markdown
           placeholder("Start writing Markdown…"),
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           markdownShortcuts,
+          wikiClickHandler((target) => onOpenNoteRef.current?.(target), () => modeRef.current),
           syntaxHighlighting(markdownHighlight),
           EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {

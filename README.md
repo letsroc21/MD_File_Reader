@@ -39,4 +39,20 @@ Finder spacebar preview is separate; [QLMarkdown](https://github.com/sbarex/QLMa
 
 Themes: Paper, Sepia, Night. Autosave is on for files that already have a path.
 
+Wiki links (`[[Note]]`, `[[Note|alias]]`) open a Markdown file in the same folder. Click in Reading; click in Live unless the cursor is on that line; Cmd-click in Source.
+
+## Updates
+
+The Dock app is a copy of a build you installed into `/Applications`. It does not download a new `.app` by itself.
+
+**Updates** (or **Check for updates** on the start screen) looks at the latest commit on GitHub `main` and compares it with the commit baked into this install. If GitHub is ahead, it can open the repo. To actually update the Dock app, rebuild and replace it:
+
+```bash
+npx tauri build --bundles app
+```
+
+Then copy the new `.app` over `/Applications/MD File Reader.app` and quit/relaunch.
+
+True auto-install (Sparkle-style) needs signed GitHub Releases and a Tauri updater keypair. This project does not do that yet because you currently ship by building locally.
+
 `samples/fidelity.md` is the round-trip test file (front matter, tables, task lists, raw HTML, footnotes).

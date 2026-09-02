@@ -5,6 +5,7 @@ import MarkdownEditor from "./editor/MarkdownEditor";
 import ReadingView from "./reading/ReadingView";
 import {
   cancelQuit,
+  checkForUpdate,
   clearRecent,
   listRecent,
   openInNewWindow,
@@ -14,6 +15,7 @@ import {
   printDocument,
   readDocument,
   registerWindow,
+  resolveNote,
   setNativeTheme,
   setWindowDirty,
   setWindowOccupied,
@@ -60,6 +62,7 @@ export default function App() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [recent, setRecent] = useState<string[]>([]);
   const [diskBanner, setDiskBanner] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const dirtyRef = useRef(false);
   const textRef = useRef("");
   const pathRef = useRef<string | null>(path);
@@ -121,6 +124,14 @@ export default function App() {
     }
     await watchFile(doc.path);
   }, [hasDocument]);
+
+  const openNote = useCallback(async (target: string) => {
+    const resolved = await resolveNote(pathRef.current, target).catch(() => null);
+    if (!resolved) {
+      return;
+    }
+    await loadPath(resolved, true);
+  }, [loadPath]);
 
   const save = useCallback(async (saveAs = false) => {
     let target = pathRef.current;
@@ -320,6 +331,20 @@ export default function App() {
     setSaveState("idle");
   }
 
+  async function handleCheckUpdates() {
+    if (checkingUpdate) {
+      return;
+    }
+    setCheckingUpdate(true);
+    try {
+      await checkForUpdate();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
+
   async function handlePrint() {
     if (view === "reading") {
       await printDocument().catch(() => undefined);
@@ -390,6 +415,9 @@ export default function App() {
           <button type="button" onClick={handleOpen}>Open</button>
           <button type="button" onClick={() => save(false)}>Save</button>
           <button type="button" onClick={handlePrint}>Print</button>
+          <button type="button" onClick={handleCheckUpdates} disabled={checkingUpdate}>
+            {checkingUpdate ? "Checking…" : "Updates"}
+          </button>
           <div className="mode-switch" role="group" aria-label="View mode">
             <button type="button" className={view === "live" ? "is-active" : ""} onClick={() => setView("live")}>Live</button>
             <button type="button" className={view === "source" ? "is-active" : ""} onClick={() => setView("source")}>Source</button>
@@ -425,6 +453,9 @@ export default function App() {
             <h1>Open a Markdown file</h1>
             <p>Double-click a `.md` file in Finder, drop one here, or pick from recent files.</p>
             <button type="button" className="start-open" onClick={handleOpen}>Open…</button>
+            <button type="button" className="start-update" onClick={handleCheckUpdates} disabled={checkingUpdate}>
+              {checkingUpdate ? "Checking GitHub…" : "Check for updates"}
+            </button>
             {recentNames.length ? (
               <div className="recent">
                 <div className="pane-label">Recent</div>
@@ -439,7 +470,7 @@ export default function App() {
             ) : null}
           </section>
         ) : view === "reading" ? (
-          <ReadingView text={text} filePath={path} />
+          <ReadingView text={text} filePath={path} onOpenNote={openNote} />
         ) : (
           <div className="page editor-page">
             <MarkdownEditor
@@ -447,6 +478,7 @@ export default function App() {
               initialText={text}
               mode={view === "source" ? "source" : "live"}
               onChange={markDirty}
+              onOpenNote={openNote}
             />
           </div>
         )}

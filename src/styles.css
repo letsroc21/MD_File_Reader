@@ -177,6 +177,10 @@ body.is-mac .chrome {
   border-color: var(--accent);
 }
 
+.chrome-actions > button:disabled {
+  opacity: 0.55;
+}
+
 .mode-switch,
 .theme-switch {
   display: flex;
@@ -487,11 +491,19 @@ body.is-mac .chrome {
 }
 
 .start-open {
-  margin: 16px 0 24px;
+  margin: 16px 0 8px;
   padding: 8px 16px;
   border-radius: 999px;
   background: var(--accent);
   color: var(--on-accent);
+}
+
+.start-update {
+  margin: 0 0 24px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
 }
 
 .recent {
@@ -528,6 +540,13 @@ body.is-mac .chrome {
   font-family: var(--serif);
   font-size: 19px;
   line-height: 1.65;
+}
+
+.reading-page a,
+.md-wiki {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .reading-page h1,

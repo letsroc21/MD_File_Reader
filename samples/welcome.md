@@ -15,3 +15,5 @@ This is a sample Markdown file you can open in **MD File Reader**.
 3. Press **Save**
 
 > Reading should feel like opening a document, not an IDE.
+
+See also [[wiki]].

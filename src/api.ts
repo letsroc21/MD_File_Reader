@@ -75,6 +75,14 @@ export async function watchFile(path: string) {
   return invoke<void>("watch_file", { path });
 }
 
+export async function resolveNote(from: string | null, target: string) {
+  return invoke<string | null>("resolve_note", { from, target });
+}
+
 export async function setNativeTheme(night: boolean) {
   return invoke<void>("set_native_theme", { night });
+}
+
+export async function checkForUpdate() {
+  return invoke<void>("check_for_update");
 }

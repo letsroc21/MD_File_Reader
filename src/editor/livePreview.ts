@@ -8,6 +8,7 @@ import {
   type ViewUpdate,
   WidgetType,
 } from "@codemirror/view";
+import { findWikiLinks, wikiLinkAt } from "../wiki";
 
 class CheckboxWidget extends WidgetType {
   constructor(
@@ -111,6 +112,14 @@ function buildDecorations(view: EditorView): DecorationSet {
     },
   });
 
+  const text = view.state.doc.toString();
+  for (const link of findWikiLinks(text)) {
+    const openAt = text[link.from] === "!" ? link.from + 1 : link.from;
+    hide(openAt, openAt + 2);
+    hide(link.to - 2, link.to);
+    add(link.from, link.to, Decoration.mark({ class: "md-link md-wiki" }));
+  }
+
   return Decoration.set(ranges, true);
 }
 
@@ -131,6 +140,36 @@ export const livePreview = ViewPlugin.fromClass(
   { decorations: (value) => value.decorations },
 );
 
+export function wikiClickHandler(
+  onOpen: (target: string) => void,
+  modeOf: () => "live" | "source" = () => "live",
+) {
+  return EditorView.domEventHandlers({
+    click(event, view) {
+      const coords = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (coords == null) {
+        return false;
+      }
+      const wiki = wikiLinkAt(view.state.doc.toString(), coords);
+      if (!wiki) {
+        return false;
+      }
+      const modified = event.metaKey || event.ctrlKey;
+      if (modeOf() === "source" && !modified) {
+        return false;
+      }
+      const line = view.state.doc.lineAt(coords);
+      const cursorLine = view.state.doc.lineAt(view.state.selection.main.head);
+      if (!modified && line.number === cursorLine.number) {
+        return false;
+      }
+      event.preventDefault();
+      onOpen(wiki.target);
+      return true;
+    },
+  });
+}
+
 export const livePreviewTheme = EditorView.theme({
   ".md-mark": { opacity: "0.28" },
   ".md-h": { fontFamily: "var(--serif)", fontWeight: "700", letterSpacing: "-0.02em" },
@@ -142,6 +181,7 @@ export const livePreviewTheme = EditorView.theme({
   ".md-code": { fontFamily: "var(--mono)", fontSize: "0.92em", background: "var(--accent-soft)" },
   ".md-quote": { color: "var(--quote)" },
   ".md-link": { color: "var(--accent)", textDecoration: "underline" },
+  ".md-wiki": { cursor: "pointer" },
   ".md-frontmatter": { opacity: "0.55", fontFamily: "var(--mono)", fontSize: "12px" },
   ".md-task": { marginRight: "6px", verticalAlign: "middle" },
 });
